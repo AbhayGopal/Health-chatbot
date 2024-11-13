@@ -1,4 +1,5 @@
 import chromadb
+from chromadb.utils import embedding_functions
 import os
 from datetime import datetime
 from typing import Dict, List, Optional
@@ -9,13 +10,28 @@ class ChromaDBManager:
         # Ensure directory exists
         os.makedirs(persist_directory, exist_ok=True)
         
+        # Initialize embedding function
+        self.embedding_function = embedding_functions.DefaultEmbeddingFunction()
+        
         self.client = chromadb.PersistentClient(path=persist_directory)
         
-        # Create collections
-        self.health_tips = self.client.get_or_create_collection("health_tips")
-        self.products = self.client.get_or_create_collection("products")
-        self.chat_history = self.client.get_or_create_collection("chat_history")
-        self.feedback = self.client.get_or_create_collection("feedback")
+        # Create collections with embedding function
+        self.health_tips = self.client.get_or_create_collection(
+            name="health_tips",
+            embedding_function=self.embedding_function
+        )
+        self.products = self.client.get_or_create_collection(
+            name="products",
+            embedding_function=self.embedding_function
+        )
+        self.chat_history = self.client.get_or_create_collection(
+            name="chat_history",
+            embedding_function=self.embedding_function
+        )
+        self.feedback = self.client.get_or_create_collection(
+            name="feedback",
+            embedding_function=self.embedding_function
+        )
 
         # Initialize with default data
         self._initialize_default_data()
@@ -79,39 +95,73 @@ class ChromaDBManager:
                 for product in default_products:
                     self.products.add(
                         documents=[product["description"]],
-                        metadatas={
+                        metadatas=[{
                             "name": product["name"],
                             "category": product["category"],
                             "price": product["price"]
-                        },
+                        }],
                         ids=[product["id"]]
                     )
                 
         except Exception as e:
             print(f"Error initializing default data: {str(e)}")
 
+    def get_relevant_content(self, query: str, limit: int = 5) -> Dict:
+        """Get relevant content based on query using vector similarity"""
+        try:
+            print(f"\n=== Getting Relevant Content for Query: {query} ===")
+            
+            # Get relevant health tips
+            health_results = self.health_tips.query(
+                query_texts=[query],  # Using actual query for semantic search
+                n_results=min(limit, len(self.health_tips.get()['ids']))
+            )
+            
+            # Get relevant products
+            product_results = self.products.query(
+                query_texts=[query],  # Using actual query for semantic search
+                n_results=min(limit, len(self.products.get()['ids']))
+            )
+            
+            print(f"Found {len(health_results['documents'][0] if health_results['documents'] else [])} relevant health tips")
+            print(f"Found {len(product_results['documents'][0] if product_results['documents'] else [])} relevant products")
+            
+            return {
+                'health_tips': {
+                    'documents': health_results['documents'][0] if health_results['documents'] else [],
+                    'metadatas': health_results['metadatas'][0] if health_results['metadatas'] else []
+                },
+                'products': {
+                    'documents': product_results['documents'][0] if product_results['documents'] else [],
+                    'metadatas': product_results['metadatas'][0] if product_results['metadatas'] else []
+                }
+            }
+            
+        except Exception as e:
+            print(f"Error getting relevant content: {str(e)}")
+            return {
+                'health_tips': {'documents': [], 'metadatas': []}, 
+                'products': {'documents': [], 'metadatas': []}
+            }
+
     def get_health_tips(self, category: Optional[str] = None, limit: int = 5) -> Dict:
         """Get health tips with proper error handling"""
         try:
             if category:
                 results = self.health_tips.query(
-                    query_texts=[""],
+                    query_texts=["health tips"],  # Generic query for tips
                     where={"category": category},
                     n_results=min(limit, len(self.health_tips.get()['ids']))
                 )
             else:
                 results = self.health_tips.query(
-                    query_texts=[""],
+                    query_texts=["health tips"],  # Generic query for tips
                     n_results=min(limit, len(self.health_tips.get()['ids']))
                 )
             
-            # Ensure we have documents and metadatas
-            documents = results['documents'][0] if results['documents'] else []
-            metadatas = results['metadatas'][0] if results['metadatas'] else []
-            
             return {
-                'documents': documents,
-                'metadatas': metadatas
+                'documents': results['documents'][0] if results['documents'] else [],
+                'metadatas': results['metadatas'][0] if results['metadatas'] else []
             }
             
         except Exception as e:
@@ -122,7 +172,7 @@ class ChromaDBManager:
         """Get products by category with proper error handling"""
         try:
             results = self.products.query(
-                query_texts=[""],
+                query_texts=[""],  # Empty query for category-based search
                 where={"category": category},
                 n_results=min(5, len(self.products.get()['ids']))
             )

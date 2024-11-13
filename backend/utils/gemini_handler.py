@@ -1,6 +1,7 @@
 import os
 import google.generativeai as genai
-from typing import Dict, List
+from typing import Dict, List, Optional
+from utils.rag_handler import RAGHandler
 
 class GeminiHandler:
     def __init__(self, api_key: str):
@@ -8,7 +9,7 @@ class GeminiHandler:
         
         # Configuration for the model
         self.generation_config = {
-            "temperature": 0.7,  # Lower temperature for more focused health advice
+            "temperature": 0.7,
             "top_p": 0.95,
             "top_k": 40,
             "max_output_tokens": 8192,
@@ -20,11 +21,16 @@ class GeminiHandler:
             generation_config=self.generation_config,
             system_instruction="""You are a knowledgeable health chatbot. 
             Provide clear, concise, and accurate health information. 
-            For complex queries, use step-by-step reasoning internally 
-            but provide only the final, simplified response."""
+            When relevant context is provided, incorporate it naturally into your responses.
+            Focus on being helpful and informative while maintaining a friendly tone."""
         )
         
         self.chat_sessions: Dict[str, any] = {}
+        self.rag_handler = None
+
+    def set_rag_handler(self, db_manager):
+        """Set RAG handler after initialization"""
+        self.rag_handler = RAGHandler(db_manager)
 
     def get_or_create_chat_session(self, user_id: str):
         """Get existing chat session or create new one"""
@@ -32,33 +38,31 @@ class GeminiHandler:
             self.chat_sessions[user_id] = self.model.start_chat(history=[])
         return self.chat_sessions[user_id]
 
-    async def get_response(self, user_id: str, message: str, context: List[str] = None) -> str:
+    async def get_response(self, user_id: str, message: str) -> str:
         try:
+            print(f"\n=== Processing Message for User: {user_id} ===")
+            print(f"Original Message: {message}")
+            
             # Get chat session
             chat = self.get_or_create_chat_session(user_id)
             
-            # Prepare prompt with context
-            prompt = message
-            if context:
-                prompt = f"""Context: {' '.join(context)}
-                User Query: {message}
-                Please provide a helpful response considering the context."""
-
+            # Get context using RAG
+            context = ""
+            if self.rag_handler:
+                context = self.rag_handler.get_relevant_context(message)
+                message = self.rag_handler.enhance_prompt(message, context)
+            
+            print("\nSending enhanced prompt to Gemini...")
+            
             # Get response
-            response = chat.send_message(prompt)
+            response = chat.send_message(message)
             
-            # Extract only the final response
-            final_response = self._extract_final_response(response.text)
+            print("\nReceived response from Gemini:")
+            print(response.text)
+            print("=== Processing Complete ===\n")
             
-            return final_response
-        
+            return response.text
+            
         except Exception as e:
             print(f"Error in getting Gemini response: {str(e)}")
             return "I apologize, but I'm having trouble processing your request. Please try again."
-
-    def _extract_final_response(self, full_response: str) -> str:
-        """Extract final response from CoT output"""
-        # If response contains specific markers, extract only the final answer
-        if "Final Answer:" in full_response:
-            return full_response.split("Final Answer:")[-1].strip()
-        return full_response.strip()

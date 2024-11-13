@@ -20,3 +20,6 @@ data/chromadb/
 # Misc
 *.log
 .DS_Store
+
+#run.txt
+run.txt

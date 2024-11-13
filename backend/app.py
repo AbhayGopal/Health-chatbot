@@ -19,6 +19,9 @@ gemini_handler = GeminiHandler(api_key=os.getenv('GOOGLE_API_KEY'))
 twilio_handler = TwilioHandler()
 db_manager = ChromaDBManager(os.path.join(os.path.dirname(__file__), '..', 'data', 'chromadb'))
 
+# Initialize RAG
+gemini_handler.set_rag_handler(db_manager)
+
 @app.errorhandler(404)
 def not_found_error(error):
     return jsonify({"error": "Resource not found"}), 404
