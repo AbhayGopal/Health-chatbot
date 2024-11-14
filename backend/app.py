@@ -1,23 +1,24 @@
+# backend/app.py
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from utils.gemini_handler import GeminiHandler
 from utils.twilio_handler import TwilioHandler
 from database.chromadb_manager import ChromaDBManager
 from services.health_tips import HealthTipsService
+from config import Config
 import os
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 # Initialize Flask app
 app = Flask(__name__)
 CORS(app)
 
+# Load configuration
+config = Config()
+
 # Initialize handlers
-gemini_handler = GeminiHandler(api_key=os.getenv('GOOGLE_API_KEY'))
+gemini_handler = GeminiHandler(config)
 twilio_handler = TwilioHandler()
-db_manager = ChromaDBManager(os.path.join(os.path.dirname(__file__), '..', 'data', 'chromadb'))
+db_manager = ChromaDBManager(config.CHROMA_DB_PATH)
 
 # Initialize RAG
 gemini_handler.set_rag_handler(db_manager)
@@ -47,7 +48,7 @@ async def chat():
         if not message:
             return jsonify({"error": "Message is required"}), 400
 
-        # Get response from Gemini
+        # Get enhanced response from Gemini
         response = await gemini_handler.get_response(user_id, message)
         
         # Store chat history
@@ -74,7 +75,7 @@ async def whatsapp_webhook():
         if not incoming_msg:
             return twilio_handler.create_response("Message is required")
 
-        # Get response from Gemini
+        # Get enhanced response from Gemini
         response = await gemini_handler.get_response(sender, incoming_msg)
         
         # Store chat history
@@ -85,7 +86,7 @@ async def whatsapp_webhook():
 
     except Exception as e:
         print(f"Error in WhatsApp webhook: {str(e)}")
-        return twilio_handler.create_response("Sorry, I couldn't process your message")
+        return twilio_handler.create_response(config.DEFAULT_RESPONSE)
 
 @app.route('/whatsapp/status', methods=['POST'])
 def whatsapp_status():
