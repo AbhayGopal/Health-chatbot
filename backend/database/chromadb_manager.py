@@ -32,6 +32,10 @@ class ChromaDBManager:
             name="feedback",
             embedding_function=self.embedding_function
         )
+        self.user_profiles = self.client.get_or_create_collection(
+            name="user_profiles",
+            embedding_function=self.embedding_function
+        )
 
         # Initialize with default data
         self._initialize_default_data()
@@ -106,20 +110,60 @@ class ChromaDBManager:
         except Exception as e:
             print(f"Error initializing default data: {str(e)}")
 
-    def get_relevant_content(self, query: str, limit: int = 5) -> Dict:
+    def get_user_profile(self, user_id: str) -> Optional[Dict]:
+        """Get user profile from database"""
+        try:
+            results = self.user_profiles.get(
+                where={"user_id": user_id},
+                limit=1
+            )
+            
+            if results and results['metadatas']:
+                return results['metadatas'][0]
+            return None
+            
+        except Exception as e:
+            print(f"Error getting user profile: {str(e)}")
+            return None
+
+    def store_user_profile(self, user_id: str, profile: Dict) -> bool:
+        """Store user profile in database"""
+        try:
+            # Convert profile to string for document
+            profile_str = f"User Profile for {user_id}"
+            
+            # Store profile
+            self.user_profiles.upsert(
+                documents=[profile_str],
+                metadatas=[profile],
+                ids=[f"profile_{user_id}"]
+            )
+            return True
+            
+        except Exception as e:
+            print(f"Error storing user profile: {str(e)}")
+            return False
+
+    def get_relevant_content(self, query: str, user_profile: Optional[Dict] = None, limit: int = 5) -> Dict:
         """Get relevant content based on query using vector similarity"""
         try:
             print(f"\n=== Getting Relevant Content for Query: {query} ===")
             
+            # Use user profile topics to enhance search if available
+            search_query = query
+            if user_profile and user_profile.get('key_topics'):
+                topics = ' '.join(user_profile['key_topics'])
+                search_query = f"{query} {topics}"
+            
             # Get relevant health tips
             health_results = self.health_tips.query(
-                query_texts=[query],  # Using actual query for semantic search
+                query_texts=[search_query],
                 n_results=min(limit, len(self.health_tips.get()['ids']))
             )
             
             # Get relevant products
             product_results = self.products.query(
-                query_texts=[query],  # Using actual query for semantic search
+                query_texts=[search_query],
                 n_results=min(limit, len(self.products.get()['ids']))
             )
             
@@ -149,13 +193,13 @@ class ChromaDBManager:
         try:
             if category:
                 results = self.health_tips.query(
-                    query_texts=["health tips"],  # Generic query for tips
+                    query_texts=["health tips"],
                     where={"category": category},
                     n_results=min(limit, len(self.health_tips.get()['ids']))
                 )
             else:
                 results = self.health_tips.query(
-                    query_texts=["health tips"],  # Generic query for tips
+                    query_texts=["health tips"],
                     n_results=min(limit, len(self.health_tips.get()['ids']))
                 )
             
@@ -172,7 +216,7 @@ class ChromaDBManager:
         """Get products by category with proper error handling"""
         try:
             results = self.products.query(
-                query_texts=[""],  # Empty query for category-based search
+                query_texts=[""],
                 where={"category": category},
                 n_results=min(5, len(self.products.get()['ids']))
             )
@@ -238,3 +282,76 @@ class ChromaDBManager:
         except Exception as e:
             print(f"Error getting chat history: {str(e)}")
             return {'documents': [], 'metadatas': []}
+        
+
+
+"""
+ChromaDBManager: Core Database Management System for Health Chatbot
+
+This class manages all database operations using ChromaDB, a vector database that enables 
+semantic search capabilities. It handles five main collections:
+
+1. health_tips: Stores health-related tips and advice
+2. products: Stores product information and descriptions
+3. chat_history: Stores user conversations
+4. feedback: Stores user feedback and ratings
+5. user_profiles: Stores user information and preferences
+
+Key Features:
+- Vector embeddings for semantic search
+- Automatic data persistence
+- Default data initialization
+- Error handling for all operations
+- User profile management
+- Context-aware content retrieval
+
+Collections Structure:
+1. health_tips:
+   - documents: tip text
+   - metadata: category
+   - ids: unique tip identifier
+
+2. products:
+   - documents: product descriptions
+   - metadata: name, category, price
+   - ids: unique product identifier
+
+3. chat_history:
+   - documents: conversation text
+   - metadata: user_id, timestamp
+   - ids: unique chat identifier
+
+4. feedback:
+   - documents: feedback comments
+   - metadata: user_id, rating, timestamp
+   - ids: unique feedback identifier
+
+5. user_profiles:
+   - documents: profile summary
+   - metadata: user preferences and history
+   - ids: unique profile identifier
+
+Main Methods:
+- get_user_profile(): Retrieves user profile information
+- store_user_profile(): Stores or updates user profiles
+- get_relevant_content(): Performs semantic search for relevant content
+- get_health_tips(): Retrieves health tips by category
+- get_products_by_category(): Retrieves products by category
+- store_chat(): Stores chat interactions
+- store_feedback(): Stores user feedback
+- get_chat_history(): Retrieves chat history
+
+Error Handling:
+- All methods include try-except blocks
+- Failed operations return empty results or False
+- Errors are logged for debugging
+
+Vector Search:
+- Uses DefaultEmbeddingFunction for text vectorization
+- Enables semantic similarity search
+- Supports context-aware retrievals
+
+Usage:
+db_manager = ChromaDBManager(persist_directory)
+db_manager.get_relevant_content(query, user_profile)
+"""

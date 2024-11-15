@@ -20,8 +20,9 @@ gemini_handler = GeminiHandler(config)
 twilio_handler = TwilioHandler()
 db_manager = ChromaDBManager(config.CHROMA_DB_PATH)
 
-# Initialize RAG
-gemini_handler.set_rag_handler(db_manager)
+# Initialize services
+gemini_handler.set_managers(db_manager)
+health_tips_service = HealthTipsService(db_manager)
 
 @app.errorhandler(404)
 def not_found_error(error):
@@ -33,13 +34,21 @@ def internal_error(error):
 
 @app.route('/health', methods=['GET'])
 def health_check():
+    """Health check endpoint"""
     return jsonify({
         "status": "healthy",
-        "message": "Health chatbot API is running"
+        "message": "Health chatbot API is running",
+        "features": {
+            "chat": True,
+            "whatsapp": config.WHATSAPP_ENABLED,
+            "tips": True,
+            "feedback": True
+        }
     })
 
 @app.route('/chat', methods=['POST'])
 async def chat():
+    """Handle chat messages"""
     try:
         data = request.json
         user_id = data.get('user_id', 'default_user')
@@ -48,8 +57,12 @@ async def chat():
         if not message:
             return jsonify({"error": "Message is required"}), 400
 
-        # Get enhanced response from Gemini
-        response = await gemini_handler.get_response(user_id, message)
+        # Get response from Gemini
+        response = await gemini_handler.get_response(
+            user_id=user_id,
+            message=message,
+            is_whatsapp=False
+        )
         
         # Store chat history
         db_manager.store_chat(user_id, message, response)
@@ -65,6 +78,7 @@ async def chat():
 
 @app.route('/whatsapp/webhook', methods=['POST'])
 async def whatsapp_webhook():
+    """Handle WhatsApp messages"""
     try:
         # Get incoming WhatsApp message details
         incoming_msg = request.values.get('Body', '').strip()
@@ -75,11 +89,12 @@ async def whatsapp_webhook():
         if not incoming_msg:
             return twilio_handler.create_response("Message is required")
 
-        # Get enhanced response from Gemini
-        response = await gemini_handler.get_response(sender, incoming_msg)
-        
-        # Store chat history
-        db_manager.store_chat(sender, incoming_msg, response)
+        # Get response from Gemini
+        response = await gemini_handler.get_response(
+            user_id=sender,
+            message=incoming_msg,
+            is_whatsapp=True
+        )
         
         # Create and return WhatsApp response
         return twilio_handler.create_response(response)
@@ -90,8 +105,8 @@ async def whatsapp_webhook():
 
 @app.route('/whatsapp/status', methods=['POST'])
 def whatsapp_status():
+    """Handle WhatsApp message status updates"""
     try:
-        # Get message status details
         message_sid = request.values.get('MessageSid', '')
         message_status = request.values.get('MessageStatus', '')
         
@@ -108,22 +123,27 @@ def whatsapp_status():
 
 @app.route('/tips/random', methods=['GET'])
 def get_random_tip():
+    """Get random health tip"""
     try:
-        tips_service = HealthTipsService(db_manager)
-        tip = tips_service.get_random_tip()
+        category = request.args.get('category')
+        tip = health_tips_service.get_random_tip(category)
+        
         return jsonify({
-            "tip": tip.get('tip', "Remember to maintain a healthy lifestyle!"),
-            "category": tip.get('category', "general_health")
+            "tip": tip.get('tip', config.DEFAULT_RESPONSE),
+            "category": tip.get('category', "general_health"),
+            "related_products": tip.get('related_products', [])
         })
     except Exception as e:
         print(f"Error in random tip endpoint: {str(e)}")
         return jsonify({
-            "tip": "Remember to maintain a healthy lifestyle!",
-            "category": "general_health"
+            "tip": config.DEFAULT_RESPONSE,
+            "category": "general_health",
+            "related_products": []
         })
 
 @app.route('/feedback', methods=['POST'])
 def submit_feedback():
+    """Submit user feedback"""
     try:
         data = request.json
         user_id = data.get('user_id', 'default_user')
@@ -133,7 +153,7 @@ def submit_feedback():
         if rating is None:
             return jsonify({"error": "Rating is required"}), 400
 
-        # Store feedback in database
+        # Store feedback
         db_manager.store_feedback(user_id, rating, comment)
         
         return jsonify({
@@ -144,5 +164,131 @@ def submit_feedback():
         print(f"Error in feedback endpoint: {str(e)}")
         return jsonify({"error": "Failed to process feedback"}), 500
 
+@app.route('/clear-context', methods=['POST'])
+def clear_context():
+    """Clear user context"""
+    try:
+        data = request.json
+        user_id = data.get('user_id')
+        
+        if not user_id:
+            return jsonify({"error": "User ID is required"}), 400
+            
+        gemini_handler.clear_context(user_id)
+        
+        return jsonify({
+            "message": "Context cleared successfully",
+            "status": "success"
+        })
+    except Exception as e:
+        print(f"Error clearing context: {str(e)}")
+        return jsonify({"error": "Failed to clear context"}), 500
+
 if __name__ == '__main__':
     app.run(host='127.0.0.1', port=5000, debug=True)
+
+
+
+
+"""
+Flask Application: Main Server Component for Health Chatbot
+
+This is the core server application that integrates all components and provides
+REST API endpoints for both Streamlit frontend and WhatsApp integration. It manages
+all incoming requests, route handling, and response generation.
+
+Key Components:
+1. Service Integration:
+   - Gemini AI for response generation
+   - Twilio for WhatsApp communication
+   - ChromaDB for data storage
+   - Health Tips service for random tips
+
+2. API Endpoints:
+   a. Core Functionality:
+      - /health: System health check
+      - /chat: Main chat interface
+      - /tips/random: Random health tip generator
+      - /feedback: User feedback collection
+      - /clear-context: Context management
+
+   b. WhatsApp Integration:
+      - /whatsapp/webhook: Message handler
+      - /whatsapp/status: Status updates
+
+3. Error Handling:
+   - 404 Not Found handler
+   - 500 Internal Server Error handler
+   - Per-endpoint error management
+   - Detailed error logging
+
+Endpoint Details:
+
+1. /health (GET):
+   - System status check
+   - Feature availability status
+   - WhatsApp integration status
+
+2. /chat (POST):
+   - Handles chat messages
+   - User identification
+   - Response generation
+   - Chat history storage
+
+3. /whatsapp/webhook (POST):
+   - WhatsApp message processing
+   - Sender identification
+   - Response generation
+   - WhatsApp-specific formatting
+
+4. /tips/random (GET):
+   - Random health tip generation
+   - Category-based filtering
+   - Product recommendations
+   - Error handling
+
+5. /feedback (POST):
+   - User feedback collection
+   - Rating processing
+   - Comment storage
+   - Success confirmation
+
+6. /clear-context (POST):
+   - Context clearing
+   - User session management
+   - Success confirmation
+
+Configuration:
+- CORS enabled for cross-origin requests
+- Debug mode for development
+- Local host binding
+- Port 5000
+
+Error Management:
+- Request validation
+- Error status codes
+- Detailed error messages
+- Exception handling
+
+Usage:
+1. Development:
+   python app.py
+   
+2. API Interaction:
+   - Use Postman/curl for testing
+   - Frontend integration via fetch/axios
+   - WhatsApp through Twilio webhooks
+
+Note: This application serves as the central hub for:
+- Frontend communication
+- WhatsApp integration
+- AI response generation
+- Data storage and retrieval
+- User interaction management
+
+Security Considerations:
+- Input validation
+- Error message sanitization
+- Rate limiting (to be implemented)
+- Authentication (for future)
+"""

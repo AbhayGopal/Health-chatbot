@@ -48,3 +48,79 @@ def init_database():
 if __name__ == "__main__":
     init_database()
     print("Database initialized successfully!")
+
+
+
+
+
+
+
+
+
+
+    """
+Database Initialization Script for Health Chatbot
+
+This script initializes the ChromaDB database with default data from JSON files.
+It serves as a setup tool to populate the database with initial health tips,
+FAQs, and product information.
+
+File Structure Required:
+data/
+├── health_knowledge/
+│   ├── health_tips.json
+│   ├── faqs.json
+│   └── products.json
+└── chromadb/
+
+JSON File Formats:
+
+1. health_tips.json:
+{
+    "tips": [
+        {
+            "id": "unique_id",
+            "text": "tip content",
+            "category": "category_name"
+        }
+    ]
+}
+
+2. faqs.json:
+{
+    "faqs": [
+        {
+            "id": "unique_id",
+            "question": "question text",
+            "answer": "answer text",
+            "category": "category_name"
+        }
+    ]
+}
+
+3. products.json:
+{
+    "products": [
+        {
+            "id": "unique_id",
+            "name": "product name",
+            "description": "product description",
+            "category": "category_name",
+            "price": float_value
+        }
+    ]
+}
+
+Functions:
+- load_json_data(): Loads and parses JSON files
+- init_database(): Main initialization function that:
+  1. Sets up ChromaDB manager
+  2. Loads JSON data
+  3. Populates database collections
+
+Usage:
+python init_db.py
+
+Note: This script should be run once during initial setup or when
+resetting the database with default data.
+"""

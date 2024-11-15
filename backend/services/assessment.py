@@ -102,3 +102,77 @@ class AssessmentService:
     def _get_recommended_products(self, category: str, score: float) -> List[Dict]:
         """Get product recommendations based on assessment results"""
         return self.db_manager.get_products_by_category(category)
+    
+
+
+"""
+AssessmentService: Health Assessment Management System
+
+This class manages health assessments across different categories (sleep, sexual health,
+general health), providing structured questionnaires, score calculation, and
+recommendations based on user responses.
+
+Assessment Categories:
+1. Sleep Assessment:
+   - Sleep duration evaluation
+   - Sleep quality assessment
+   - Wake-up freshness check
+
+2. Sexual Health Assessment:
+   - Overall sexual health rating
+   - Basic health evaluation
+
+3. General Health Assessment:
+   - Overall health status
+   - Basic wellness check
+
+Assessment Structure:
+{
+    'questions': [
+        {
+            'id': unique_identifier,
+            'text': question_text,
+            'options': [possible_answers],
+            'weights': [scoring_weights]
+        }
+    ],
+    'max_score': maximum_possible_score
+}
+
+Scoring System:
+- Weight-based scoring (1-4 scale)
+- Percentage calculation
+- Category-specific thresholds
+- Recommendation mapping
+
+Features:
+1. Assessment Templates:
+   - Pre-defined question sets
+   - Weighted scoring system
+   - Category-specific evaluations
+
+2. Score Calculation:
+   - Answer processing
+   - Weight application
+   - Percentage conversion
+
+3. Recommendations:
+   - Score-based advice
+   - Product suggestions
+   - Professional referrals
+
+Error Handling:
+- Invalid category handling
+- Missing answer management
+- Score calculation safety
+- Default responses
+
+Usage Example:
+service = AssessmentService(db_manager)
+assessment = service.get_assessment('sleep')
+results = service.calculate_score('sleep', user_answers)
+
+Note: This service implements the Preliminary Health Assessment
+requirement from the MVP, providing basic health evaluations
+and recommendations.
+"""

@@ -76,3 +76,72 @@ class HealthTipsService:
         except Exception as e:
             print(f"Error getting related products: {str(e)}")
             return []
+        
+
+
+"""
+HealthTipsService: Health Tips and Product Recommendation System
+
+This class manages the generation and delivery of health tips and related product
+recommendations, supporting both database-sourced and default tips when needed.
+
+Key Features:
+1. Tip Management:
+   - Random tip selection
+   - Category filtering
+   - Default tip fallback
+   - Product linking
+
+2. Categories:
+   - Sleep
+   - Sexual Health
+   - General Health
+   - Lifestyle
+
+Data Structures:
+1. Tips Format:
+{
+    "tip": "tip_text",
+    "category": "category_name",
+    "related_products": [
+        {
+            "name": "product_name",
+            "description": "product_description",
+            "price": price_value
+        }
+    ]
+}
+
+2. Default Tips:
+- Maintained in memory
+- Basic health advice
+- Category-tagged
+- Fallback system
+
+Features:
+1. Random Tip Generation:
+   - Database query
+   - Random selection
+   - Category filtering
+   - Default fallback
+
+2. Product Linking:
+   - Category-based matching
+   - Product details
+   - Price information
+   - Description inclusion
+
+Error Handling:
+- Database errors
+- Empty results
+- Category mismatches
+- Safe defaults
+
+Usage Example:
+service = HealthTipsService(db_manager)
+tip = service.get_random_tip(category='sleep')
+
+Note: This service implements the Initial Engagement
+requirement from the MVP, providing health tips and
+product recommendations.
+"""

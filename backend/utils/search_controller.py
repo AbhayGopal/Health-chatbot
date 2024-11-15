@@ -60,3 +60,70 @@ Format your response to include:
         results = dict(query_results)
         
         return results
+    
+
+
+"""
+SearchController: Research and Medical Data Search System
+
+This class manages concurrent searches for medical research and data using
+Perplexity's Sonar model. It processes multiple research queries simultaneously
+for efficient information gathering.
+
+Key Features:
+1. Concurrent Processing:
+   - Asynchronous query handling
+   - Parallel research searches
+   - Efficient resource utilization
+
+2. Research Focus:
+   - Scientific evidence
+   - Clinical studies
+   - Safety concerns
+   - Expert opinions
+
+3. Response Formatting:
+   - Key findings
+   - Safety warnings
+   - Scientific consensus
+   - Study references
+
+Model Configuration:
+- Uses llama-3.1-sonar-small-128k-online
+- Low temperature (0.3) for accuracy
+- Controlled token output (1024)
+- Research-focused system prompt
+
+Process Flow:
+1. Query Reception:
+   - Takes list of research queries
+   - Prepares concurrent tasks
+
+2. Parallel Processing:
+   - Creates async tasks for each query
+   - Manages concurrent execution
+   - Handles individual query failures
+
+3. Result Aggregation:
+   - Combines all search results
+   - Maintains query-result mapping
+   - Handles errors gracefully
+
+Error Handling:
+- Per-query error management
+- Graceful failure handling
+- Detailed error reporting
+
+Usage Example:
+controller = SearchController(api_key)
+results = await controller.search_research([
+    "melatonin safety studies",
+    "melatonin dosage research"
+])
+
+Note: This component ensures:
+- Efficient research gathering
+- Reliable scientific information
+- Comprehensive error handling
+- Structured research results
+"""

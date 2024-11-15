@@ -1,7 +1,9 @@
+# frontend/streamlit_app.py
 import streamlit as st
 import requests
 import json
 from datetime import datetime
+import time
 
 # Configure Streamlit page
 st.set_page_config(
@@ -14,9 +16,13 @@ st.set_page_config(
 # Constants
 API_URL = "http://localhost:5000"
 
-# Initialize session state for chat history
+# Initialize session state
 if 'messages' not in st.session_state:
     st.session_state.messages = []
+if 'user_id' not in st.session_state:
+    st.session_state.user_id = f"streamlit_{int(time.time())}"
+if 'session_start' not in st.session_state:
+    st.session_state.session_start = datetime.now()
 
 def get_random_tip():
     """Fetch random health tip from API"""
@@ -33,6 +39,7 @@ def send_message(message):
         response = requests.post(
             f"{API_URL}/chat",
             json={
+                "user_id": st.session_state.user_id,
                 "message": message
             }
         )
@@ -47,6 +54,7 @@ def submit_feedback(rating, comment):
         response = requests.post(
             f"{API_URL}/feedback",
             json={
+                "user_id": st.session_state.user_id,
                 "rating": rating,
                 "comment": comment
             }
@@ -55,6 +63,20 @@ def submit_feedback(rating, comment):
     except Exception as e:
         st.error(f"Error submitting feedback: {str(e)}")
         return None
+
+def clear_chat_context():
+    """Clear chat context"""
+    try:
+        response = requests.post(
+            f"{API_URL}/clear-context",
+            json={"user_id": st.session_state.user_id}
+        )
+        if response.status_code == 200:
+            st.session_state.messages = []
+            return True
+    except Exception as e:
+        st.error(f"Error clearing context: {str(e)}")
+    return False
 
 # Sidebar
 with st.sidebar:
@@ -66,6 +88,11 @@ with st.sidebar:
         tip = get_random_tip()
         if tip:
             st.info(tip['tip'])
+            if tip.get('related_products'):
+                st.subheader("Related Products")
+                for product in tip['related_products']:
+                    st.write(f"📦 {product['name']} - ${product['price']}")
+                    st.write(product['description'])
     
     # Feedback section
     st.subheader("Feedback")
@@ -74,6 +101,11 @@ with st.sidebar:
     if st.button("Submit Feedback"):
         if submit_feedback(rating, feedback_comment):
             st.success("Thank you for your feedback!")
+    
+    # Clear context button
+    if st.button("Clear Chat History"):
+        if clear_chat_context():
+            st.success("Chat history cleared!")
 
 # Main chat interface
 st.title("💬 Chat with Health Assistant")
@@ -101,4 +133,96 @@ if prompt := st.chat_input("How can I help you today?"):
 
 # Footer
 st.markdown("---")
-st.markdown("💡 Tip: Ask any health-related questions in the chat above!")
+st.markdown("Need help? Use the feedback form in the sidebar to reach out to our team.")
+
+
+
+
+
+
+"""
+Streamlit Frontend: User Interface for Health Chatbot
+
+This application provides the web interface for the health chatbot, implementing
+all MVP requirements including chat interface, health tips, feedback system,
+and session management.
+
+Key Features:
+
+1. User Interface Components:
+   - Chat interface with history
+   - Health tips display
+   - Feedback collection
+   - Session management
+
+2. Session State Management:
+   - Message history
+   - User identification
+   - Session timing
+   - Context maintenance
+
+3. API Integration:
+   - Chat message handling
+   - Health tip retrieval
+   - Feedback submission
+   - Context management
+
+4. Error Handling:
+   - API communication errors
+   - Display errors
+   - Session errors
+   - Network issues
+
+Layout Structure:
+1. Sidebar:
+   - Health Assistant title
+   - Daily health tip
+   - Feedback system
+   - Clear chat option
+
+2. Main Area:
+   - Chat interface
+   - Message history
+   - Input field
+   - Response display
+
+Functions:
+1. get_random_tip():
+   - Fetches health tips
+   - Handles API errors
+   - Displays related products
+
+2. send_message():
+   - Manages chat communication
+   - Handles API requests
+   - Updates chat history
+
+3. submit_feedback():
+   - Collects user feedback
+   - Sends to backend
+   - Shows confirmation
+
+4. clear_chat_context():
+   - Resets chat history
+   - Clears session state
+   - Updates UI
+
+Session Management:
+- Unique user identification
+- Message history tracking
+- Session timing
+- State persistence
+
+Error Handling:
+- API communication errors
+- Display fallbacks
+- User notifications
+- Graceful degradation
+
+Note: This frontend implements all MVP requirements:
+- Initial engagement (health tips)
+- Chat interface
+- Feedback system
+- Session management
+- Error handling
+"""

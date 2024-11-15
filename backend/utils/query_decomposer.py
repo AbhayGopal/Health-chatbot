@@ -56,3 +56,65 @@ If research is not needed, return empty sub_queries list.
                 "needs_research": False,
                 "sub_queries": []
             }
+        
+
+
+"""
+QueryDecomposer: Query Analysis and Decomposition System for Health Chatbot
+
+This class uses Gemini Flash model to analyze user queries and break them down into
+sub-queries when detailed research is needed. It's the first step in the chatbot's
+processing pipeline, determining how to handle each user query.
+
+Key Features:
+1. Query Analysis:
+   - Determines if scientific research is needed
+   - Breaks complex queries into simpler sub-queries
+   - Uses low temperature for consistent outputs
+
+2. Model Configuration:
+   - Uses Gemini Flash for fast processing
+   - Conservative temperature (0.3) for focused outputs
+   - Limited token output for efficiency
+   - Optimized top_p and top_k for reliable results
+
+Output Structure:
+{
+    "needs_research": boolean,  # Whether query needs research
+    "sub_queries": [           # List of sub-queries if research needed
+        "What is [topic]...?",
+        "What are benefits...?",
+        "What are risks...?",
+        "What does research say...?"
+    ]
+}
+
+Decomposition Strategy:
+1. Basic Understanding: What is the topic/mechanism?
+2. Benefits Analysis: What are proven benefits?
+3. Risk Assessment: What are potential risks?
+4. Research Validation: What does science say?
+
+Error Handling:
+- Returns safe default values on errors
+- Logs decomposition process
+- Maintains service continuity
+
+Usage Example:
+decomposer = QueryDecomposer(api_key)
+result = decomposer.decompose_query("Is ashwagandha safe?")
+# Returns:
+# {
+#     "needs_research": true,
+#     "sub_queries": [
+#         "What is ashwagandha and how does it work?",
+#         "What are the proven benefits of ashwagandha?",
+#         "What are the potential risks of ashwagandha?",
+#         "What does research say about ashwagandha safety?"
+#     ]
+# }
+
+Note: This component is crucial for determining when to activate
+the research pipeline and how to structure the information gathering
+process.
+"""
